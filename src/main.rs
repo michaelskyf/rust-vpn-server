@@ -55,7 +55,14 @@ async fn listener_loop(listener: TcpListener) -> Result<()>
 #[tokio::main]
 async fn main()
 {
-    let listener = TcpListener::bind("127.0.0.1:1234").await.unwrap();
     
-    tokio::spawn(async move { listener_loop(listener).await }).await.unwrap().unwrap();
+    let addresses = vec!["127.0.0.1:1234", "127.0.0.1:12345", "127.0.0.1:12346"];
+
+    for address in addresses
+    {
+        let listener = TcpListener::bind(address).await.unwrap();
+        tokio::spawn(async move { listener_loop(listener).await });
+    }
+
+    tokio::join!();
 }
