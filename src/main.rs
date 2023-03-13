@@ -6,9 +6,11 @@ use std::net::Ipv4Addr;
 use tokio::net::{TcpListener, TcpStream};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::io::Result;
 use tokio::net::tcp::ReadHalf;
 use std::str::{self, from_utf8};
+use std::pin::Pin;
 
 /*async fn client_handler(mut rx: ReadHalf<'_>) -> Result<()>
 {
@@ -23,14 +25,17 @@ use std::str::{self, from_utf8};
     Ok(())
 } */
 
-async fn client_handler(mut socket: TcpStream) -> Result<()>
+async fn client_handler<R, W>(mut rx: R, mut tx: W) -> Result<()>
+where
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin
 {
     loop
     {
-        socket.write(b"Hello, World!\n").await?;
+        tx.write(b"Hello, World!\n").await?;
 
         let mut buf = [0_u8; 1024];
-        let read = socket.read(&mut buf).await?;
+        let read = rx.read(&mut buf).await?;
 
         println!("Message: {}", from_utf8(&buf[0..read]).unwrap());
     }
@@ -40,13 +45,23 @@ async fn client_handler(mut socket: TcpStream) -> Result<()>
 
 async fn listener_loop(listener: TcpListener) -> Result<()>
 {
-    println!("Loop!");
     loop
     {
-        let (socket, _) = listener.accept().await?;
+        let (mut socket, _) = listener.accept().await?;
         println!("Client connected!");
 
-        tokio::spawn(async move { client_handler(socket).await }); 
+        tokio::spawn(async move
+            {
+                let (rx, tx) = socket.split();
+                match client_handler(rx, tx).await
+                {
+                    Err(err) =>
+                    {
+                        println!("{err}");
+                    },
+                    _ => ()
+                }
+            }); 
     }
 
     Ok(())
