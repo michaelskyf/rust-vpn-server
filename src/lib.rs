@@ -2,18 +2,13 @@
 #![allow(unused_imports)]
 
 mod connection;
-pub use connection::Connection;
+use connection::Handler;
 
-mod conn_handler;
-use conn_handler::Handler;
+mod config;
+use config::Config;
 
-pub mod conn_db;
-use conn_db::ConnDb;
-
-mod shutdown;
-use shutdown::Shutdown;
-
-pub mod server;
+pub mod host_db;
+use host_db::HostDB;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
