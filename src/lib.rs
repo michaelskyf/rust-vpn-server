@@ -7,6 +7,9 @@ use connection::Handler;
 mod config;
 use config::Config;
 
+mod packet;
+use packet::Packet;
+
 pub mod host_db;
 use host_db::HostDB;
 
