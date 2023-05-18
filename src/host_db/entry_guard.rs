@@ -1,15 +1,18 @@
-use crate::HostDB;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use std::net::IpAddr;
 
-pub struct EntryGuard
+use super::DB;
+
+pub struct EntryGuard<'a>
 {
-    db: HostDB,
+    lock: &'a RwLock<DB>,
     data: IpAddr,
     /// TODO: Remove when AsyncDrops became a language feature
     dropped: bool
 }
 
-impl EntryGuard
+impl<'a> EntryGuard<'a>
 {
     pub fn get(&self) -> IpAddr
     {
@@ -24,14 +27,14 @@ impl EntryGuard
         }
 
         self.dropped = true;
-        self.db.state.write().await.map.remove(&self.data);
+        self.lock.write().await.unregister(&self.data);
     }
 }
 
 /// TODO: This should be replaced with AsyncDrop once that becomes a feature in the language
 /// Late removing of the entry in the DB may lead to invalid mpsc queues
 /// Alternatively free the resources by using async_drop() on DBEntryGuard
-impl Drop for EntryGuard
+impl<'a> Drop for EntryGuard<'a>
 {
     fn drop(&mut self)
     {
@@ -40,7 +43,7 @@ impl Drop for EntryGuard
             return;
         }
 
-        let new_guard = EntryGuard { db: self.db.clone(), data: self.data, dropped: self.dropped };
+        let new_guard = EntryGuard { lock: self.lock, data: self.data, dropped: self.dropped };
 
         tokio::spawn(async move
         {
@@ -55,7 +58,7 @@ impl AsyncDrop for EntryGuard
 {
     async fn drop(&mut self)
     {
-        new_guard.async_drop().await;
+        self.lock.write().await.unregister(&self.data);
     }
 }
 */

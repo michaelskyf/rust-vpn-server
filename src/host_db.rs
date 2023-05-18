@@ -1,11 +1,15 @@
 use std::sync::Arc;
 use ipnet::IpNet;
+use tokio::sync::mpsc::{Sender, self};
 
 mod entry_guard;
 use crate::host_db::entry_guard::EntryGuard;
 
 mod db;
 use crate::host_db::db::DB;
+
+use crate::Packet;
+use std::net::IpAddr;
 
 use tokio::sync::RwLock;
 
@@ -35,7 +39,7 @@ impl HostDB
 
     }
 
-    pub async fn get(&self, ip: &IpAddr) -> Option<Sender<[u8; 1500]>>
+    pub async fn get(&self, ip: &IpAddr) -> Option<Sender<Packet>>
     {
 
     }
