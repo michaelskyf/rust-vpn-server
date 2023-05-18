@@ -25,37 +25,49 @@ struct AddressPool
 pub struct DBEntryGuard
 {
     db: HostDB,
-    data: IpAddr
+    data: IpAddr,
+    /// TODO: Remove when AsyncDrops became a language feature
+    dropped: bool
 }
 
 impl DBEntryGuard
 {
-    pub fn new(db: HostDB, data: IpAddr) -> Self
-    {
-        DBEntryGuard
-        {
-            db,
-            data
-        }
-    }
-
     pub fn get(&self) -> IpAddr
     {
         self.data
     }
+
+    pub async fn async_drop(mut self)
+    {
+        if self.dropped == true
+        {
+            return;
+        }
+
+        println!("Dropping in async_drop");
+        self.dropped = true;
+        self.db.state.write().await.map.remove(&self.data);
+    }
 }
 
+/// TODO: This should be replaced with AsyncDrop once that becomes a feature in the language
+/// Late removing of the entry in the DB may lead to invalid mpsc queues
+/// Alternatively free the resources by using async_drop() on DBEntryGuard
 impl Drop for DBEntryGuard
 {
     fn drop(&mut self)
     {
-        let db = self.db.clone();
-        let data = self.data;
+        if self.dropped == true
+        {
+            return;
+        }
+
+        println!("Dropping in Drop");
+        let new_guard = DBEntryGuard { db: self.db.clone(), data: self.data, dropped: self.dropped };
+
         tokio::spawn(async move
         {
-            println!("Dropping: {}", db.state.read().await.map.len());
-            db.state.write().await.map.remove(&data);
-            println!("{}", db.state.read().await.map.len());
+            new_guard.async_drop().await;
         });
     }
 }
@@ -80,7 +92,7 @@ impl HostDB
         let (sender, _receiver) = mpsc::channel(1);
         self.state.write().await.map.insert("127.0.0.1".parse().unwrap(), sender);
 
-        Some(DBEntryGuard { db: self.clone(), data: "127.0.0.1".parse().unwrap() })
+        Some(DBEntryGuard { db: self.clone(), data: "127.0.0.1".parse().unwrap(), dropped: false })
     }
 
     /*pub async fn register_with_ip(&mut self, ip: &IpAddr) -> Option<DBEntryGuard>
@@ -98,18 +110,24 @@ impl HostDB
 mod test
 {
     #[tokio::test]
-    async fn db_entry_guard()
+    async fn db_entry_guard_late_drop()
     {
         let mut db = crate::HostDB::new();
 
         let guard = db.register().await.unwrap();
 
-        println!("{}", db.state.read().await.map.len());
-
         drop(guard);
 
-        println!("{}", db.state.read().await.map.len());
-
         tokio::task::yield_now().await;
+    }
+
+    #[tokio::test]
+    async fn db_entry_guard2()
+    {
+        let mut db = crate::HostDB::new();
+
+        let guard = db.register().await.unwrap();
+
+        guard.async_drop().await;
     }
 }
