@@ -1,11 +1,11 @@
-use std::{net::IpAddr, collections::VecDeque};
+use std::{net::IpAddr, collections::{VecDeque, HashMap}};
 
 use ipnet::IpNet;
 
 #[derive(Debug)]
 pub(super) struct AddressPool
 {
-    queue: VecDeque<IpAddr>,
+    hosts: HashMap<IpAddr, ()>,
     net: IpNet
 }
 
@@ -15,31 +15,32 @@ impl AddressPool
     {
         AddressPool
         {
-            queue: net.hosts().collect(),
+            hosts: net.hosts().map(|key| (key, ())).collect(),
             net
         }
     }
 
-    fn available(&self, ip: &IpAddr) -> bool
+    fn contains(&self, ip: &IpAddr) -> bool
     {
-        self.queue.contains(ip)
+        self.hosts.contains_key(ip)
     }
 
     pub fn remove(&mut self) -> Option<IpAddr>
     {
-        self.queue.pop_back()
+        let ip = *self.hosts.iter().find(|_| true)?.0; // Get any available ip
+
+        self.hosts.remove(&ip);
+
+        Some(ip)
     }
 
     pub fn remove_specific(&mut self, ip: &IpAddr) -> Option<IpAddr>
     {
-        if self.available(ip) == false
-        {
-            return None;
-        }
+        let ip = *self.hosts.iter().find(|(x, _)| *x == ip)?.0;
 
-        let index = self.queue.iter().position(|x| x == ip)?;
+        self.hosts.remove(&ip);
 
-        self.queue.remove(index)
+        Some(ip)
     }
 
     pub fn r#return(&mut self, ip: IpAddr)
@@ -49,6 +50,6 @@ impl AddressPool
             return;
         }
 
-        self.queue.push_back(ip);
+        self.hosts.insert(ip, ());
     }
 }
