@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use ipnet::IpNet;
-use tokio::sync::mpsc::{Sender, self};
+use tokio::sync::mpsc::{Sender, self, Receiver};
 
 mod db;
 mod entry_guard;
@@ -20,7 +20,7 @@ pub struct HostDB
 
 impl HostDB
 {
-    pub fn new(net: &IpNet) -> Self
+    pub fn new(net: IpNet) -> Self
     {
         HostDB
         {
@@ -28,13 +28,13 @@ impl HostDB
         }
     }
 
-    pub async fn register(&mut self) -> Option<EntryGuard>
+    pub async fn register(&mut self) -> Option<(EntryGuard, Receiver<Packet>)>
     {
         match self.lock.write().await.register()
         {
-            Some(ip) =>
+            Some((ip, rx)) =>
             {
-                Some(EntryGuard { lock: &self.lock, data: ip })
+                Some((EntryGuard { lock: &self.lock, data: ip }, rx))
             },
             None =>
             {
@@ -43,13 +43,13 @@ impl HostDB
         }
     }
 
-    pub async fn register_with_ip(&mut self, ip: &IpAddr) -> Option<EntryGuard>
+    pub async fn register_with_ip(&mut self, ip: &IpAddr) -> Option<(EntryGuard, Receiver<Packet>)>
     {
         match self.lock.write().await.register_with_ip(ip)
         {
-            Some(ip) =>
+            Some((ip, rx)) =>
             {
-                Some(EntryGuard { lock: &self.lock, data: ip })
+                Some((EntryGuard { lock: &self.lock, data: ip }, rx))
             },
             None =>
             {

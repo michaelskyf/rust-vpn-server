@@ -1,6 +1,6 @@
 use std::{collections::HashMap, net::IpAddr};
 use ipnet::IpNet;
-use tokio::sync::mpsc::{Sender, self};
+use tokio::sync::mpsc::{Sender, self, Receiver};
 
 use crate::packet::Packet;
 
@@ -16,25 +16,37 @@ pub(super) struct DB
 
 impl DB
 {
-    pub fn new(net: &IpNet) -> Self
+    pub fn new(net: IpNet) -> Self
     {
-        todo!()
+        DB
+        {
+            pool: AddressPool::new(net),
+            map: Default::default()
+        }
     }
 
-    pub fn register_with_ip(&mut self, ip: &IpAddr) -> Option<IpAddr>
+    pub fn register_with_ip(&mut self, ip: &IpAddr) -> Option<(IpAddr, Receiver<Packet>)>
     {
-        todo!()
+        let ip = self.pool.remove_specific(ip)?;
+        let (tx, rx) = mpsc::channel(128); // TODO: Make the queue user-configurable
+        self.map.insert(ip, tx);
+
+        Some((ip, rx))
     }
 
-    pub fn register(&mut self) -> Option<IpAddr>
+    pub fn register(&mut self) -> Option<(IpAddr, Receiver<Packet>)>
     {
-        todo!()
+        let ip = self.pool.remove()?;
+        let (tx, rx) = mpsc::channel(128); // TODO: Make the queue user-configurable
+        self.map.insert(ip, tx);
+
+        Some((ip, rx))
     }
 
-    pub fn unregister(&mut self, ip: &IpAddr)
+    pub fn unregister(&mut self, ip: IpAddr)
     {
-        self.map.remove(ip);
-        todo!()
+        self.map.remove(&ip);
+        self.pool.r#return(ip);
     }
 
     pub fn get(&self, ip: &IpAddr) -> Option<Sender<Packet>>

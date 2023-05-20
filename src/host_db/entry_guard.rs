@@ -19,7 +19,7 @@ impl<'a> EntryGuard<'a>
     /// TODO: Replace with AsyncDrop in the future
     pub async fn async_drop(self)
     {
-        self.lock.write().await.unregister(&self.data);
+        self.lock.write().await.unregister(self.data);
     }
 }
 
@@ -44,11 +44,12 @@ mod test
     #[tokio::test]
     async fn test()
     {
-        let mut db = HostDB::new(&IpNet::new("192.168.1.0".parse().unwrap(), 24).unwrap());
-        let guard = db.register().await.unwrap();
+        let mut db = HostDB::new(IpNet::new("192.168.1.0".parse().unwrap(), 24).unwrap());
+        let (guard, _) = db.register().await.unwrap();
         
-        let data = guard.get();
+        let _data = guard.get();
+        println!("{}", _data);
+
         guard.async_drop().await;
-        
     }
 }
