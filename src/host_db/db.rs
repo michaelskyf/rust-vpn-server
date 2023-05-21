@@ -46,7 +46,7 @@ impl DB
     pub fn unregister(&mut self, ip: IpAddr)
     {
         self.map.remove(&ip);
-        self.pool.r#return(ip);
+        self.pool.insert(ip);
     }
 
     pub fn get(&self, ip: &IpAddr) -> Option<Sender<Packet>>

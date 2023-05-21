@@ -43,7 +43,7 @@ impl AddressPool
         Some(ip)
     }
 
-    pub fn r#return(&mut self, ip: IpAddr)
+    pub fn insert(&mut self, ip: IpAddr)
     {
         if self.net.contains(&ip) == false
         {

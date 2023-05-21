@@ -3,7 +3,7 @@ use ipnet::IpNet;
 use tokio::sync::mpsc::{Sender, self, Receiver};
 
 mod db;
-mod entry_guard;
+pub mod entry_guard;
 mod address_pool;
 use self::{entry_guard::EntryGuard, db::DB};
 
