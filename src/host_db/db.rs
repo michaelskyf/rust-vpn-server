@@ -2,7 +2,7 @@ use std::{collections::HashMap, net::IpAddr};
 use ipnet::IpNet;
 use tokio::sync::mpsc::{Sender, self, Receiver};
 
-use crate::packet::Packet;
+use crate::Packet;
 
 use super::address_pool::AddressPool;
 use super::entry_guard::EntryGuard;

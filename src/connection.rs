@@ -1,36 +1,34 @@
 use std::{marker::PhantomData, str::from_utf8};
 
 use tokio::{io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt, split}, sync::{mpsc::Receiver, Mutex}};
-use crate::{HostDB, Config, Result, packet::Packet, Error, host_db::entry_guard::EntryGuard};
+use crate::{HostDB, Config, Result, Packet, Error, host_db::entry_guard::EntryGuard};
 
-pub(crate) struct Handler<'a>
+pub(crate) struct Handler
 {
-    mq_rx: Receiver<Packet>,
-    ip_guard: EntryGuard<'a>
+
 }
 
-impl<'a> Handler<'a>
+impl Handler
 {
-    pub async fn new<Stream: AsyncRead + AsyncWrite + Unpin + Send>(stream: Stream, mut db: HostDB) -> Result<()>
+    pub async fn new<Stream: AsyncRead + AsyncWrite + Unpin>(stream: Stream, db: HostDB) -> Result<()>
     {
-        let (ip_guard, mq_rx) = db.register().await.ok_or::<Error>("Failed to register the connection".into())?;
-
-        let data = Handler { mq_rx, ip_guard };
+        let mut db_clone = db.clone();
+        let (ip_guard, mut mq_rx) = db_clone.register().await.ok_or::<Error>("Failed to register the connection".into())?;
 
         let (mut rx, mut tx) = split(stream);
 
         // TODO: Handle errors
         let (_, _) = tokio::join!(
-            Self::handle_incoming(&mut rx),
-            Self::handle_outgoing(&mut tx));
+            Self::handle_incoming(&mut rx, db.clone()),
+            Self::handle_outgoing(&mut tx, &mut mq_rx));
 
         // TODO: Remove when AsyncDrop becomes a part of the language
-        data.ip_guard.async_drop().await;
+        ip_guard.async_drop().await;
 
         Ok(())
     }
 
-    async fn handle_incoming<R: AsyncReadExt + Unpin>(stream: &mut R) -> Result<()>
+    async fn handle_incoming<R: AsyncReadExt + Unpin>(stream: &mut R, db: HostDB) -> Result<()>
     {
         let mut buf = [0u8; 1500];
         let read = stream.read(&mut buf).await.map_err(|e| e.to_string())?;
@@ -40,9 +38,21 @@ impl<'a> Handler<'a>
         Ok(())
     }
 
-    async fn handle_outgoing<W: AsyncWrite + Unpin>(stream: &mut W) -> Result<()>
+    async fn handle_outgoing<W: AsyncWrite + Unpin>(stream: &mut W, mq: &mut Receiver<Packet>) -> Result<()>
     {
         stream.write(b"Hello from handle_outgoing()!").await.map_err(|e| e.to_string())?;
+        
+        loop
+        {
+            tokio::select!
+            {
+                Some(packet) = mq.recv() =>
+                {
+                    stream.write(packet.as_ref()).await.map_err(|e| e.to_string())?;
+                },
+                else => break
+            }
+        }
 
         Ok(())
     }

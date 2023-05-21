@@ -1,13 +1,13 @@
 use std::sync::Arc;
 use ipnet::IpNet;
 use tokio::sync::mpsc::{Sender, self, Receiver};
+use crate::Packet;
 
 mod db;
 pub mod entry_guard;
 mod address_pool;
 use self::{entry_guard::EntryGuard, db::DB};
 
-use crate::Packet;
 use std::net::IpAddr;
 
 use tokio::sync::RwLock;
