@@ -20,11 +20,6 @@ impl AddressPool
         }
     }
 
-    fn contains(&self, ip: &IpAddr) -> bool
-    {
-        self.hosts.contains_key(ip)
-    }
-
     pub fn remove(&mut self) -> Option<IpAddr>
     {
         let ip = *self.hosts.iter().find(|_| true)?.0; // Get any available ip
